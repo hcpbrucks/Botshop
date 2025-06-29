@@ -15,7 +15,7 @@ const sessions = new Map();
 client.once(Events.ClientReady, () => {
   console.log(`✅ Bot online: ${client.user.tag}`);
   client.application.commands.set([
-    { name: 'kauf-menü', description: 'Starte den Bot-Kauf' }
+    { name: 'kauf-menu', description: 'Starte den Bot-Kauf' }
   ], process.env.GUILD_ID);
 });
 
