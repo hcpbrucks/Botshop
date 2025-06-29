@@ -22,8 +22,40 @@ client.once(Events.ClientReady, () => {
 client.on(Events.InteractionCreate, async inter => {
   if (inter.isChatInputCommand() && inter.commandName === 'kauf-menü') {
     const embed = new EmbedBuilder()
-      .setTitle('Kaufe deinen personalisierten Bot')
-      .setDescription(`💰 Preise: ${prices.join('€ • ')}€\nZahlung: PayPal, PSC, Amazon, Robux, Überweisung`)
+      .setTitle('Kaufe jetzt Deinen Personalisierten Bot schon Ab 1€')
+      .setDescription(`Du möchtest deinen eigenen personalisierten Bot mit allen Funktionen die du dir vorstellst? **Dann personalisiere jetzt deinen eigenen Bot schon ab einem Euro**
+
+
+Die Preise variieren , jenachdem was Du ausgewählt hast und welche  Funktionen du haben möchtest 
+
+Bezahlmöglichleiten:
+** • Pay Pal <:emoji_1:1381389163370250260>** 
+Aktiv✅
+
+** • Paysafe <:emoji_2:1381389538848669726>**
+(Nur Eine Karte aus Deutschland gültig)
+Aktiv✅
+
+** • Amazon Karte <:emoji_3:1381390572568182967>**
+(Nur Eine Karte aus Deutschland gültig)
+Aktiv✅
+
+** • Robux <:emoji_4:1382376057692356731>**
+Aktiv✅
+
+** • Bank Überweisung <:emoji_5:1382376103959724293>**
+ Aktiv✅
+
+** • Revolut <:emoji_6:1382376140521607291>**
+nicht aktiv ❌
+
+** • Server Boost <:emoji_7:1382376223069700268>**
+Aktiv✅
+
+** • Bitte sei dir bewusst das wir wenn auf einer Gutscheinkarte zu viel Guthaben drauf ist,wir es nicht zurückzahlen können**
+
+
+ ${prices.join('€ • ')}€\nZahlung: PayPal, PSC, Amazon, Robux, Überweisung`)
       .setColor(0x00AE86);
     const button = new ButtonBuilder()
       .setCustomId('kauf_start')
