@@ -55,7 +55,7 @@ Aktiv✅
 ** • Bitte sei dir bewusst das wir wenn auf einer Gutscheinkarte zu viel Guthaben drauf ist,wir es nicht zurückzahlen können**
 
 
- 
+ ${prices.join('€ • ')}€\nZahlung: PayPal, PSC, Amazon, Robux, Überweisung`)
       .setColor(0x00AE86);
     const button = new ButtonBuilder()
       .setCustomId('kauf_start')
