@@ -126,4 +126,15 @@ Aktiv✅
   }
 });
 
-client.login(process.env.TOKEN);
+client.login(process.env.TOKEN);const express = require('express');
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Einfacher Test-Endpunkt
+app.get('/', (req, res) => {
+  res.send('Bot läuft ✔️');
+});
+
+app.listen(PORT, () => {
+  console.log(`Webserver läuft auf Port ${PORT}`);
+});
