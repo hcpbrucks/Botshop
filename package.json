@@ -1,14 +1,1 @@
-{
-  "name": "kauf-bot",
-  "version": "1.0.0",
-  "description": "Bot für Bestellungen über ein Slash-Menü",
-  "main": "Discord.js",
-  "scripts": {
-    "start": "node Discord.js"
-  },
-  "dependencies": {
-    "discord.js": "^14.11.0",
-    "dotenv": "^16.0.3",
-    "express": "^4.18.2"
-  }
-}
+
