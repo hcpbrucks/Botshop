@@ -26,7 +26,7 @@ const client = new Client({
 const registeredUsers = new Map();
 
 client.once('ready', () => {
-  console.log(`✅ Bot online als ${client.user.tag}`);
+  console.log(`✅ Bot ist online als ${client.user.tag}`);
 });
 
 // === BEFEHL: !register
