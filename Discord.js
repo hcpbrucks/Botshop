@@ -2,14 +2,14 @@ const express = require('express');
 const paypal = require('paypal-rest-sdk');
 const { Client, GatewayIntentBits } = require('discord.js');
 
-// ⚙️ Konfiguration (direkt im Code)
-const DISCORD_TOKEN = 'MTM4ODkxNTIyNzE1NTc2MzM2Mg.GjpiYP.v_e43cYj0ooMwccBlrN_QNLWgZcK74o8BJflMo';
-const GUILD_ID = '1381009607123796069';
-const ROLE_ID = '1381289636952932352';
-const ADMIN_CHANNEL_ID = '1381286179152068750';
-const BASE_URL = 'https://botshop-v6zi.onrender.com'; // ⛔️ Hier deine echte Render-URL eintragen!
-const PAYPAL_CLIENT_ID = 'AQYB9y5a6UIUUabcti0aRyydn90q-_IUJxKFNoqEaeZWt19wQir2zpEaABT21rD5XSYNyyniSaB2l9Pk';
-const PAYPAL_CLIENT_SECRET = 'AQYB9y5a6UIUUabcti0aRyydn90q-_IUJxKFNoqEaeZWt19wQir2zpEaABT21rD5XSYNyyniSaB2l9Pk';
+// ⚙️ Konfiguration über Umgebungsvariablen
+const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
+const GUILD_ID = process.env.GUILD_ID;
+const ROLE_ID = process.env.ROLE_ID;
+const ADMIN_CHANNEL_ID = process.env.ADMIN_CHANNEL_ID;
+const BASE_URL = process.env.BASE_URL; // z. B. https://botshop-v6zi.onrender.com
+const PAYPAL_CLIENT_ID = process.env.PAYPAL_CLIENT_ID;
+const PAYPAL_CLIENT_SECRET = process.env.PAYPAL_CLIENT_SECRET;
 
 const app = express();
 app.use(express.json());
@@ -29,7 +29,7 @@ client.once('ready', () => {
   console.log(`✅ Bot ist online als ${client.user.tag}`);
 });
 
-// === BEFEHL: !register
+// === BEFEHL: !pay
 client.on('messageCreate', async message => {
   if (message.author.bot || message.content.toLowerCase() !== '!pay') return;
 
@@ -62,7 +62,7 @@ client.login(DISCORD_TOKEN);
 
 // === PAYPAL Setup
 paypal.configure({
-  mode: 'sandbox', // oder 'live' für echte Zahlungen
+  mode: 'sandbox', // oder 'live'
   client_id: PAYPAL_CLIENT_ID,
   client_secret: PAYPAL_CLIENT_SECRET
 });
@@ -72,13 +72,12 @@ app.get('/', (req, res) => {
   res.send('🟢 Bot & Server laufen');
 });
 
-// === /pay Route
 app.get('/pay', (req, res) => {
   const userId = req.query.userId;
   const amount = registeredUsers.get(userId);
 
   if (!userId || !amount) {
-    return res.send('❌ Du musst dich zuerst mit !register registrieren.');
+    return res.send('❌ Du musst dich zuerst mit !pay registrieren.');
   }
 
   const create_payment_json = {
@@ -106,7 +105,6 @@ app.get('/pay', (req, res) => {
   });
 });
 
-// === /success Route
 app.get('/success', async (req, res) => {
   const { PayerID: payerId, paymentId, userId } = req.query;
   const amount = registeredUsers.get(userId);
@@ -129,7 +127,6 @@ app.get('/success', async (req, res) => {
       const member = await guild.members.fetch(userId);
       await member.roles.add(ROLE_ID);
 
-      // ✅ Nachricht an Admin-Channel
       const adminChannel = await client.channels.fetch(ADMIN_CHANNEL_ID);
       if (adminChannel && adminChannel.isTextBased()) {
         adminChannel.send(`✅ **Zahlung erhalten!**\nUser: <@${userId}>\nBetrag: ${amount} €`);
