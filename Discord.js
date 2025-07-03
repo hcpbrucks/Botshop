@@ -1,140 +1,153 @@
-require('dotenv').config();
-const { Client, GatewayIntentBits, Partials, Events,
-  ActionRowBuilder, ButtonBuilder, ButtonStyle,
-  StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, EmbedBuilder
-} = require('discord.js');
+const express = require('express');
+const paypal = require('paypal-rest-sdk');
+const { Client, GatewayIntentBits } = require('discord.js');
+
+// ⚙️ Konfiguration (direkt im Code)
+const DISCORD_TOKEN = 'MTM4ODkxNTIyNzE1NTc2MzM2Mg.GJSXC9.6zdo8RpNr1mZ6QeAD7Vf2bBmSd7zA-ZRcXoAYQ';
+const GUILD_ID = '1381009607123796069';
+const ROLE_ID = '1381289636952932352';
+const ADMIN_CHANNEL_ID = '1381286179152068750';
+const BASE_URL = 'https://botshop-v6zi.onrender.com'; // ⛔️ Hier deine echte Render-URL eintragen!
+const PAYPAL_CLIENT_ID = 'AQYB9y5a6UIUUabcti0aRyydn90q-_IUJxKFNoqEaeZWt19wQir2zpEaABT21rD5XSYNyyniSaB2l9Pk';
+const PAYPAL_CLIENT_SECRET = 'AQYB9y5a6UIUUabcti0aRyydn90q-_IUJxKFNoqEaeZWt19wQir2zpEaABT21rD5XSYNyyniSaB2l9Pk';
+
+const app = express();
+app.use(express.json());
 
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
-  partials: [Partials.Channel]
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMembers,
+  ]
 });
 
-const prices = ['1', '5', '8', '10', '15', '20'];
-const sessions = new Map();
+const registeredUsers = new Map();
 
-client.once(Events.ClientReady, () => {
-  console.log(`✅ Bot ist online: ${client.user.tag}`);
-  client.application.commands.set([
-    { name: 'kauf-menü', description: 'Starte den Bot-Kauf' }
-  ], process.env.GUILD_ID);
+client.once('ready', () => {
+  console.log(`✅ Bot online als ${client.user.tag}`);
 });
 
-client.on(Events.InteractionCreate, async inter => {
-  if (inter.isChatInputCommand() && inter.commandName === 'kauf-menü') {
-    const embed = new EmbedBuilder()
-      .setTitle('Kaufe jetzt Deinen Personalisierten Bot schon Ab 1€')
-      .setDescription(`Du möchtest deinen eigenen personalisierten Bot mit allen Funktionen die du dir vorstellst? **Dann personalisiere jetzt deinen eigenen Bot schon ab einem Euro**
+// === BEFEHL: !register
+client.on('messageCreate', async message => {
+  if (message.author.bot || message.content.toLowerCase() !== '!pay') return;
 
+  const channel = message.channel;
+  const userId = message.author.id;
 
-Die Preise variieren , jenachdem was Du ausgewählt hast und welche  Funktionen du haben möchtest 
-
-Bezahlmöglichleiten:
-** • Pay Pal <:emoji_1:1381389163370250260>** 
-Aktiv✅
-
-** • Paysafe <:emoji_2:1381389538848669726>**
-(Nur Eine Karte aus Deutschland gültig)
-Aktiv✅
-
-** • Amazon Karte <:emoji_3:1381390572568182967>**
-(Nur Eine Karte aus Deutschland gültig)
-Aktiv✅
-
-** • Robux <:emoji_4:1382376057692356731>**
-Aktiv✅
-
-** • Bank Überweisung <:emoji_5:1382376103959724293>**
- Aktiv✅
-
-** • Revolut <:emoji_6:1382376140521607291>**
-nicht aktiv ❌
-
-** • Server Boost <:emoji_7:1382376223069700268>**
-Aktiv✅
-
-** • Bitte sei dir bewusst das wir wenn auf einer Gutscheinkarte zu viel Guthaben drauf ist,wir es nicht zurückzahlen können**
-
-
- ${prices.join('€ • ')}€\nZahlung: PayPal, PSC, Amazon, Robux, Überweisung`)
-      .setColor(0x00AE86);
-    const button = new ButtonBuilder()
-      .setCustomId('kauf_start')
-      .setLabel('Jetzt starten')
-      .setEmoji('🛒')
-      .setStyle(ButtonStyle.Success);
-    await inter.reply({ embeds: [embed], components: [new ActionRowBuilder().addComponents(button)] });
+  if (!channel.name.startsWith('kauf-ticket-')) {
+    const reply = await message.reply('❌ Dieser Befehl darf nur in einem Kauf-Ticket verwendet werden.');
+    setTimeout(() => {
+      message.delete().catch(() => {});
+      reply.delete().catch(() => {});
+    }, 10000);
+    return;
   }
 
-  if (inter.isButton() && inter.customId === 'kauf_start') {
-    sessions.set(inter.user.id, { step: 1, data: { userId: inter.user.id } });
-    const menu = new StringSelectMenuBuilder()
-      .setCustomId('select_price')
-      .setPlaceholder('Wähle deinen Preis')
-      .addOptions(prices.map(p => ({ label: `${p}€`, value: p })));
-    await inter.update({ content: 'Wähle deinen Preis:', embeds: [], components: [new ActionRowBuilder().addComponents(menu)] });
-  }
+  const messages = await channel.messages.fetch({ limit: 10 });
+  const last = messages.find(msg => msg.author.bot && /(\d+[.,]?\d*)€/.test(msg.content));
+  if (!last) return message.reply('❌ Konnte keine Nachricht mit dem Preis finden.');
 
-  if (inter.isStringSelectMenu() && inter.customId === 'select_price') {
-    const session = sessions.get(inter.user.id);
-    if (!session) return inter.reply({ content: '❌ Session abgelaufen.', ephemeral: true });
+  const match = last.content.match(/(\d+[.,]?\d*)€/);
+  if (!match) return message.reply('❌ Preis konnte nicht ausgelesen werden.');
 
-    const price = inter.values[0];
-    session.data.price = price;
+  const price = match[1].replace(',', '.');
+  registeredUsers.set(userId, price);
 
-    const count = { '1': 3, '5': 3, '8': 5, '10': 5, '15': 5, '20': 5 }[price];
-    const modal = new ModalBuilder().setCustomId('form1').setTitle(`Angaben für ${price}€`);
-
-    for (let i = 0; i < count; i++) {
-      modal.addComponents(new ActionRowBuilder().addComponents(
-        new TextInputBuilder()
-          .setCustomId(`field_${i}`)
-          .setLabel(`Befehl/Automation ${i + 1}`)
-          .setStyle(TextInputStyle.Short)
-      ));
-    }
-
-    await inter.showModal(modal);
-  }
-
-  if (inter.isModalSubmit() && inter.customId === 'form1') {
-    const session = sessions.get(inter.user.id);
-    if (!session) return inter.reply({ content: 'Session abgelaufen.', ephemeral: true });
-
-    const fields = [];
-    for (let i = 0; i < 10; i++) {
-      try {
-        fields.push(inter.fields.getTextInputValue(`field_${i}`));
-      } catch {}
-    }
-
-    session.data.fields = fields.filter(f => f.trim() !== '');
-    const { userId, price } = session.data;
-    await inter.reply({ content: `✅ Danke <@${userId}>! Wir melden uns bald bei dir.`, ephemeral: true });
-
-    const embed = new EmbedBuilder()
-      .setTitle('📩 Neue Bestellung')
-      .addFields(
-        { name: 'User', value: `<@${userId}>`, inline: true },
-        { name: 'Preis', value: `${price}€`, inline: true },
-        { name: 'Befehle', value: session.data.fields.map((f, i) => `${i + 1}. ${f}`).join('\n') }
-      )
-      .setColor(0xffcc00);
-    const adminChan = await client.channels.fetch(process.env.ADMIN_CHANNEL_ID);
-    await adminChan.send({ embeds: [embed] });
-
-    sessions.delete(userId);
-  }
+  message.reply(`✅ Du bist registriert! Bezahle hier:\n${BASE_URL}/pay?userId=${userId}`);
 });
 
-client.login(process.env.TOKEN);const express = require('express');
-const app = express();
-const PORT = process.env.PORT || 3000;
+client.login(DISCORD_TOKEN);
 
-// Einfacher Test-Endpunkt
+// === PAYPAL Setup
+paypal.configure({
+  mode: 'sandbox', // oder 'live' für echte Zahlungen
+  client_id: PAYPAL_CLIENT_ID,
+  client_secret: PAYPAL_CLIENT_SECRET
+});
+
+// === EXPRESS SERVER
 app.get('/', (req, res) => {
-  res.send('Bot läuft ✔️');
+  res.send('🟢 Bot & Server laufen');
 });
 
+// === /pay Route
+app.get('/pay', (req, res) => {
+  const userId = req.query.userId;
+  const amount = registeredUsers.get(userId);
+
+  if (!userId || !amount) {
+    return res.send('❌ Du musst dich zuerst mit !register registrieren.');
+  }
+
+  const create_payment_json = {
+    intent: 'sale',
+    payer: { payment_method: 'paypal' },
+    redirect_urls: {
+      return_url: `${BASE_URL}/success?userId=${userId}`,
+      cancel_url: `${BASE_URL}/cancel`
+    },
+    transactions: [{
+      amount: { currency: 'EUR', total: amount },
+      description: 'Discord-Rolle kaufen'
+    }]
+  };
+
+  paypal.payment.create(create_payment_json, (error, payment) => {
+    if (error) {
+      console.error(error);
+      return res.send('❌ Fehler beim Erstellen der Zahlung.');
+    }
+
+    const approvalUrl = payment.links.find(link => link.rel === 'approval_url');
+    if (approvalUrl) return res.redirect(approvalUrl.href);
+    return res.send('❌ Keine Weiterleitung möglich.');
+  });
+});
+
+// === /success Route
+app.get('/success', async (req, res) => {
+  const { PayerID: payerId, paymentId, userId } = req.query;
+  const amount = registeredUsers.get(userId);
+
+  const execute_payment_json = {
+    payer_id: payerId,
+    transactions: [{
+      amount: { currency: 'EUR', total: amount }
+    }]
+  };
+
+  paypal.payment.execute(paymentId, execute_payment_json, async (error, payment) => {
+    if (error) {
+      console.error(error.response);
+      return res.send('❌ Zahlung fehlgeschlagen.');
+    }
+
+    try {
+      const guild = await client.guilds.fetch(GUILD_ID);
+      const member = await guild.members.fetch(userId);
+      await member.roles.add(ROLE_ID);
+
+      // ✅ Nachricht an Admin-Channel
+      const adminChannel = await client.channels.fetch(ADMIN_CHANNEL_ID);
+      if (adminChannel && adminChannel.isTextBased()) {
+        adminChannel.send(`✅ **Zahlung erhalten!**\nUser: <@${userId}>\nBetrag: ${amount} €`);
+      }
+
+      res.send('✅ Zahlung erfolgreich! Du hast deine Rolle erhalten.');
+    } catch (err) {
+      console.error('Fehler beim Rollen vergeben:', err);
+      res.send('✅ Zahlung erfolgreich, aber es gab einen Fehler bei der Rollenzuweisung.');
+    }
+  });
+});
+
+app.get('/cancel', (req, res) => {
+  res.send('❌ Zahlung wurde abgebrochen.');
+});
+
+const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
-  console.log(`Webserver läuft auf Port ${PORT}`);
+  console.log(`🌐 Server läuft auf Port ${PORT}`);
 });
