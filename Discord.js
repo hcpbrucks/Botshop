@@ -13,7 +13,7 @@ const prices = ['1', '5', '8', '10', '15', '20'];
 const sessions = new Map();
 
 client.once(Events.ClientReady, () => {
-  console.log(`✅ Bot online: ${client.user.tag}`);
+  console.log(`✅ Bot ist online: ${client.user.tag}`);
   client.application.commands.set([
     { name: 'kauf-menü', description: 'Starte den Bot-Kauf' }
   ], process.env.GUILD_ID);
