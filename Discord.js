@@ -3,7 +3,7 @@ const paypal = require('paypal-rest-sdk');
 const { Client, GatewayIntentBits } = require('discord.js');
 
 // ⚙️ Konfiguration (direkt im Code)
-const DISCORD_TOKEN = 'MTM4ODkxNTIyNzE1NTc2MzM2Mg.GJSXC9.6zdo8RpNr1mZ6QeAD7Vf2bBmSd7zA-ZRcXoAYQ';
+const DISCORD_TOKEN = 'MTM4ODkxNTIyNzE1NTc2MzM2Mg.GjpiYP.v_e43cYj0ooMwccBlrN_QNLWgZcK74o8BJflMo';
 const GUILD_ID = '1381009607123796069';
 const ROLE_ID = '1381289636952932352';
 const ADMIN_CHANNEL_ID = '1381286179152068750';
