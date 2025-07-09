@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, SlashCommandBuilder, REST, Routes } = require('discord.js');
+const { Client, GatewayIntentBits, SlashCommandBuilder, REST, Routes } = require('index.js');
 
 // 🔐 Konfig aus Umgebungsvariablen (z. B. Render oder .env)
 const TOKEN = process.env.DISCORD_TOKEN;
