@@ -1,28 +1,18 @@
-// index.js
-const http = require('http');
-const { Client, GatewayIntentBits, SlashCommandBuilder, REST, Routes, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
+const { 
+  Client, GatewayIntentBits, SlashCommandBuilder, 
+  REST, Routes, EmbedBuilder, PermissionFlagsBits 
+} = require('discord.js');
 
-// Webserver starten (für Render)
-const port = process.env.PORT || 3000;
-const server = http.createServer((req, res) => {
-  res.writeHead(200);
-  res.end('Bot läuft\n');
-});
-server.listen(port, () => {
-  console.log(`Webserver läuft auf Port ${port}`);
-});
-
-// Umgebungsvariablen auslesen
 const TOKEN = process.env.TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 const GUILD_ID = process.env.GUILD_ID;
+const ERLAUBTE_ROLLE = '1381291659492458549';
 
-// Discord Client initialisieren
 const client = new Client({
   intents: [GatewayIntentBits.Guilds],
 });
 
-// Slash Command definieren
+// 🎯 Slash-Command erstellen
 const commands = [
   new SlashCommandBuilder()
     .setName('embed')
@@ -35,11 +25,24 @@ const commands = [
       option.setName('nachricht')
         .setDescription('Inhalt des Embeds')
         .setRequired(true))
-    .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
+    .addStringOption(option =>
+      option.setName('farbe')
+        .setDescription('Farbe des Embeds')
+        .addChoices(
+          { name: 'Hellblau (Standard)', value: '0x00AEFF' },
+          { name: 'Rot', value: '0xFF0000' },
+          { name: 'Grün', value: '0x00FF00' },
+          { name: 'Blau', value: '0x0000FF' },
+          { name: 'Gelb', value: '0xFFFF00' },
+          { name: 'Schwarz', value: '0x000000' }
+        )
+        .setRequired(false)
+    )
+    .setDefaultMemberPermissions(PermissionFlagsBits.SendMessages)
     .toJSON()
 ];
 
-// Command registrieren
+// 🛰️ Slash-Command registrieren
 const rest = new REST({ version: '10' }).setToken(TOKEN);
 (async () => {
   try {
@@ -54,28 +57,38 @@ const rest = new REST({ version: '10' }).setToken(TOKEN);
   }
 })();
 
-// Bot ready Event
+// 🤖 Bot bereit
 client.on('ready', () => {
   console.log(`✅ Bot ist online als ${client.user.tag}`);
 });
 
-// Command Handling
+// 📥 Befehl ausführen
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
   if (interaction.commandName === 'embed') {
+    const member = await interaction.guild.members.fetch(interaction.user.id);
+    if (!member.roles.cache.has(ERLAUBTE_ROLLE)) {
+      return await interaction.reply({
+        content: '❌ Du hast keine Berechtigung, diesen Befehl zu verwenden.',
+        ephemeral: true
+      });
+    }
+
     const titel = interaction.options.getString('titel');
     const nachricht = interaction.options.getString('nachricht');
+    const farbwahl = interaction.options.getString('farbe');
+    const farbe = farbwahl ? parseInt(farbwahl) : 0x00AEFF;
 
     const embed = new EmbedBuilder()
       .setTitle(titel)
       .setDescription(nachricht)
-      .setColor(0x00AEFF)
+      .setColor(farbe)
       .setTimestamp()
       .setFooter({ text: `Gesendet von ${interaction.user.tag}` });
 
-    await interaction.reply({ embeds: [embed] });
+    await interaction.channel.send({ embeds: [embed] });
+    await interaction.reply({ content: '✅ Embed gesendet!', ephemeral: true });
   }
 });
 
-// Bot einloggen
 client.login(TOKEN);
