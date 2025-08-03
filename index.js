@@ -33,7 +33,7 @@ const rest = new REST({ version: '10' }).setToken(TOKEN);
       Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
       { body: commands }
     );
-    console.log('✅ Slash-Commands registriert!');
+    console.log('✅ Slash-Commands ist registriert!');
   } catch (error) {
     console.error(error);
   }
