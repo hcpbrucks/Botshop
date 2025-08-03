@@ -1,9 +1,1 @@
-{
-  "name": "discord-bot",
-  "version": "1.0.0",
-  "description": "Mein Discord Bot",
-  "main": "index.js",
-  "scripts": {
-    "start": "node index.js"
-  }
-}
+
