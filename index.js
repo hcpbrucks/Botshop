@@ -1,23 +1,30 @@
-const {
-  Client,
-  GatewayIntentBits,
-  SlashCommandBuilder,
-  REST,
-  Routes,
-  EmbedBuilder,
-  PermissionFlagsBits
-} = require('discord.js');
+const express = require('express');
+const { Client, GatewayIntentBits, SlashCommandBuilder, REST, Routes, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
+require('dotenv').config();
 
 const TOKEN = process.env.TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 const GUILD_ID = process.env.GUILD_ID;
+const ROLE_REQUIRED_ID = '1381291659492458549';
+const WELCOME_CHANNEL_ID = '1381278996645412984';
+const WELCOME_ROLES = ['1381290464916930691', '1381289341279670342'];
 
-// === Bot Setup ===
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers]
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
 });
 
-// === Slash Command Registrierung ===
+const app = express();
+const port = process.env.PORT || 3000;
+
+// Mini-Webserver (nur damit Render zufrieden ist)
+app.get('/', (req, res) => {
+  res.send('Bot läuft!');
+});
+app.listen(port, () => {
+  console.log(`🌐 Webserver läuft auf Port ${port}`);
+});
+
+// Slash-Command registrieren
 const commands = [
   new SlashCommandBuilder()
     .setName('embed')
@@ -34,12 +41,13 @@ const commands = [
       option.setName('farbe')
         .setDescription('Farbe des Embeds')
         .addChoices(
-          { name: 'Blau', value: 'blau' },
           { name: 'Rot', value: 'rot' },
+          { name: 'Blau', value: 'blau' },
           { name: 'Grün', value: 'gruen' },
+          { name: 'Gelb', value: 'gelb' },
           { name: 'Schwarz', value: 'schwarz' }
         )
-        .setRequired(false))
+    )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
     .toJSON()
 ];
@@ -58,65 +66,59 @@ const rest = new REST({ version: '10' }).setToken(TOKEN);
   }
 })();
 
-// === Slash Command Verarbeitung ===
+// Willkommensnachricht
+client.on('guildMemberAdd', async member => {
+  const channel = member.guild.channels.cache.get(WELCOME_CHANNEL_ID);
+  if (!channel) return;
+
+  const embed = new EmbedBuilder()
+    .setTitle('Welcome')
+    .setColor('Red')
+    .setDescription(`Hello ${member}.\nWelcome to **${member.guild.name}**.\nYou are the **${member.guild.memberCount}th** member!\nPlease verify to access all channels.`);
+
+  await channel.send({ embeds: [embed] });
+
+  try {
+    await member.roles.add(WELCOME_ROLES);
+  } catch (err) {
+    console.error('Fehler beim Rollen geben:', err);
+  }
+});
+
+// Bot ready
+client.on('ready', () => {
+  console.log(`✅ Bot ist online als ${client.user.tag}`);
+});
+
+// Embed Command
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
   if (interaction.commandName === 'embed') {
-    // Nur mit bestimmter Rolle ausführen
-    const requiredRole = '1381291659492458549';
-    if (!interaction.member.roles.cache.has(requiredRole)) {
-      return interaction.reply({
-        content: '❌ Du hast keine Berechtigung diesen Befehl zu verwenden.',
-        ephemeral: true
-      });
+    const member = interaction.member;
+    if (!member.roles.cache.has(ROLE_REQUIRED_ID)) {
+      return interaction.reply({ content: '❌ Du hast keine Berechtigung, diesen Befehl zu verwenden.', ephemeral: true });
     }
 
     const titel = interaction.options.getString('titel');
     const nachricht = interaction.options.getString('nachricht');
     const farbe = interaction.options.getString('farbe');
 
-    // Farbauswahl
-    let farbwert = 0x00AEFF; // Standard: Hellblau
-    if (farbe === 'rot') farbwert = 0xFF0000;
-    else if (farbe === 'gruen') farbwert = 0x00FF00;
-    else if (farbe === 'schwarz') farbwert = 0x2F3136;
+    const farbMap = {
+      rot: 0xFF0000,
+      blau: 0x00AEFF,
+      gruen: 0x00FF00,
+      gelb: 0xFFFF00,
+      schwarz: 0x2C2F33
+    };
 
     const embed = new EmbedBuilder()
       .setTitle(titel)
       .setDescription(nachricht)
-      .setColor(farbwert)
-      .setFooter({ text: `Pluezz Shop` });
+      .setColor(farbMap[farbe] || 0x00AEFF) // Standard: Hellblau
+      .setFooter({ text: ' ' }); // Kein Footer (versteckt den Autor)
 
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.reply({ embeds: [embed], ephemeral: false });
   }
-});
-
-// === Willkommenssystem ===
-client.on('guildMemberAdd', async member => {
-  const welcomeChannel = member.guild.channels.cache.get('1381278996645412984');
-  const role1 = member.guild.roles.cache.get('1381290464916930691');
-  const role2 = member.guild.roles.cache.get('1381289341279670342');
-
-  if (!welcomeChannel || !role1 || !role2) return console.error('Channel oder Rollen nicht gefunden!');
-
-  try {
-    await member.roles.add(role1);
-    await member.roles.add(role2);
-  } catch (error) {
-    console.error('Fehler beim Rollen vergeben:', error);
-  }
-
-  const embed = new EmbedBuilder()
-    .setTitle('Welcome')
-    .setColor(0xFF0000)
-    .setDescription(`Hello ${member}.\nWelcome to **${member.guild.name}**.\nYou are the **server member**.\nPlease verify to access all channels.`)
-    .setThumbnail(member.user.displayAvatarURL());
-
-  welcomeChannel.send({ embeds: [embed] });
-});
-
-client.once('ready', () => {
-  console.log(`✅ Bot ist online als ${client.user.tag}`);
 });
 
 client.login(TOKEN);
