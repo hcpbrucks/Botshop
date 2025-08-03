@@ -1,19 +1,28 @@
+// index.js
+const http = require('http');
 const { Client, GatewayIntentBits, SlashCommandBuilder, REST, Routes, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
 
-// Token, Client ID und Guild ID aus Umgebungsvariablen holen
-const TOKEN = process.env.BOT_TOKEN;
+// Webserver starten (für Render)
+const port = process.env.PORT || 3000;
+const server = http.createServer((req, res) => {
+  res.writeHead(200);
+  res.end('Bot läuft\n');
+});
+server.listen(port, () => {
+  console.log(`Webserver läuft auf Port ${port}`);
+});
+
+// Umgebungsvariablen auslesen
+const TOKEN = process.env.TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 const GUILD_ID = process.env.GUILD_ID;
 
-if (!TOKEN || !CLIENT_ID || !GUILD_ID) {
-  console.error('Fehler: Bitte BOT_TOKEN, CLIENT_ID und GUILD_ID als Umgebungsvariablen setzen!');
-  process.exit(1);
-}
-
+// Discord Client initialisieren
 const client = new Client({
   intents: [GatewayIntentBits.Guilds],
 });
 
+// Slash Command definieren
 const commands = [
   new SlashCommandBuilder()
     .setName('embed')
@@ -30,8 +39,8 @@ const commands = [
     .toJSON()
 ];
 
+// Command registrieren
 const rest = new REST({ version: '10' }).setToken(TOKEN);
-
 (async () => {
   try {
     console.log('📨 Slash-Command wird registriert...');
@@ -45,10 +54,12 @@ const rest = new REST({ version: '10' }).setToken(TOKEN);
   }
 })();
 
+// Bot ready Event
 client.on('ready', () => {
   console.log(`✅ Bot ist online als ${client.user.tag}`);
 });
 
+// Command Handling
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
   if (interaction.commandName === 'embed') {
@@ -66,4 +77,5 @@ client.on('interactionCreate', async interaction => {
   }
 });
 
+// Bot einloggen
 client.login(TOKEN);
