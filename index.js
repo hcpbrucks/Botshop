@@ -1,30 +1,23 @@
-const express = require('express');
-const { Client, GatewayIntentBits, SlashCommandBuilder, REST, Routes, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
-require('dotenv').config();
+const {
+  Client,
+  GatewayIntentBits,
+  SlashCommandBuilder,
+  REST,
+  Routes,
+  EmbedBuilder,
+  PermissionFlagsBits
+} = require('discord.js');
 
 const TOKEN = process.env.TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 const GUILD_ID = process.env.GUILD_ID;
 
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-app.get('/', (req, res) => res.send('Bot läuft!'));
-app.listen(PORT, () => console.log(`🌐 Webserver läuft auf Port ${PORT}`));
-
-// Discord Bot
+// === Bot Setup ===
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds],
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers]
 });
 
-const farben = {
-  rot: 0xFF0000,
-  blau: 0x0000FF,
-  grün: 0x00FF00,
-  schwarz: 0x000000,
-  gelb: 0xFFFF00,
-};
-
+// === Slash Command Registrierung ===
 const commands = [
   new SlashCommandBuilder()
     .setName('embed')
@@ -39,16 +32,15 @@ const commands = [
         .setRequired(true))
     .addStringOption(option =>
       option.setName('farbe')
-        .setDescription('Wähle die Farbe des Embeds')
+        .setDescription('Farbe des Embeds')
         .addChoices(
-          { name: 'Rot', value: 'rot' },
           { name: 'Blau', value: 'blau' },
-          { name: 'Grün', value: 'grün' },
-          { name: 'Schwarz', value: 'schwarz' },
-          { name: 'Gelb', value: 'gelb' },
+          { name: 'Rot', value: 'rot' },
+          { name: 'Grün', value: 'gruen' },
+          { name: 'Schwarz', value: 'schwarz' }
         )
         .setRequired(false))
-    .setDefaultMemberPermissions(PermissionFlagsBits.SendMessages)
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
     .toJSON()
 ];
 
@@ -66,19 +58,15 @@ const rest = new REST({ version: '10' }).setToken(TOKEN);
   }
 })();
 
-client.on('ready', () => {
-  console.log(`🤖 Bot ist online als ${client.user.tag}`);
-});
-
+// === Slash Command Verarbeitung ===
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
   if (interaction.commandName === 'embed') {
-    const member = await interaction.guild.members.fetch(interaction.user.id);
-    const allowedRole = '1381291659492458549';
-
-    if (!member.roles.cache.has(allowedRole)) {
-      return await interaction.reply({
-        content: '❌ Du darfst diesen Befehl nicht benutzen.',
+    // Nur mit bestimmter Rolle ausführen
+    const requiredRole = '1381291659492458549';
+    if (!interaction.member.roles.cache.has(requiredRole)) {
+      return interaction.reply({
+        content: '❌ Du hast keine Berechtigung diesen Befehl zu verwenden.',
         ephemeral: true
       });
     }
@@ -86,17 +74,49 @@ client.on('interactionCreate', async interaction => {
     const titel = interaction.options.getString('titel');
     const nachricht = interaction.options.getString('nachricht');
     const farbe = interaction.options.getString('farbe');
-    const farbwert = farben[farbe] ?? 0x00AEFF;
+
+    // Farbauswahl
+    let farbwert = 0x00AEFF; // Standard: Hellblau
+    if (farbe === 'rot') farbwert = 0xFF0000;
+    else if (farbe === 'gruen') farbwert = 0x00FF00;
+    else if (farbe === 'schwarz') farbwert = 0x2F3136;
 
     const embed = new EmbedBuilder()
       .setTitle(titel)
       .setDescription(nachricht)
       .setColor(farbwert)
-      
+      .setFooter({ text: `Pluezz Shop` });
 
-    await interaction.channel.send({ embeds: [embed] });
-    await interaction.reply({ content: '✅ Embed gesendet.', ephemeral: true });
+    await interaction.reply({ embeds: [embed], ephemeral: true });
   }
+});
+
+// === Willkommenssystem ===
+client.on('guildMemberAdd', async member => {
+  const welcomeChannel = member.guild.channels.cache.get('1381278996645412984');
+  const role1 = member.guild.roles.cache.get('1381290464916930691');
+  const role2 = member.guild.roles.cache.get('1381289341279670342');
+
+  if (!welcomeChannel || !role1 || !role2) return console.error('Channel oder Rollen nicht gefunden!');
+
+  try {
+    await member.roles.add(role1);
+    await member.roles.add(role2);
+  } catch (error) {
+    console.error('Fehler beim Rollen vergeben:', error);
+  }
+
+  const embed = new EmbedBuilder()
+    .setTitle('Welcome')
+    .setColor(0xFF0000)
+    .setDescription(`Hello ${member}.\nWelcome to **${member.guild.name}**.\nYou are the **server member**.\nPlease verify to access all channels.`)
+    .setThumbnail(member.user.displayAvatarURL());
+
+  welcomeChannel.send({ embeds: [embed] });
+});
+
+client.once('ready', () => {
+  console.log(`✅ Bot ist online als ${client.user.tag}`);
 });
 
 client.login(TOKEN);
