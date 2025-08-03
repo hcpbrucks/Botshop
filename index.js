@@ -1,11 +1,11 @@
-const { Client, GatewayIntentBits, Partials, REST, Routes, SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
+const { Client, GatewayIntentBits, SlashCommandBuilder, REST, Routes, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
+
 const TOKEN = 'DEIN_BOT_TOKEN';
 const CLIENT_ID = 'DEINE_CLIENT_ID';
-const GUILD_ID = 'DEINE_SERVER_ID'; // optional nur für testing
+const GUILD_ID = 'DEIN_SERVER_ID';
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds],
-  partials: [Partials.Channel],
 });
 
 const commands = [
@@ -18,24 +18,23 @@ const commands = [
         .setRequired(true))
     .addStringOption(option =>
       option.setName('nachricht')
-        .setDescription('Nachricht im Embed')
+        .setDescription('Inhalt des Embeds')
         .setRequired(true))
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
     .toJSON()
 ];
 
-// Slash-Commands registrieren
 const rest = new REST({ version: '10' }).setToken(TOKEN);
 (async () => {
   try {
-    console.log('⏳ Slash-Commands werden registriert...');
+    console.log('📨 Slash-Command wird registriert...');
     await rest.put(
       Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
       { body: commands }
     );
-    console.log('✅ Slash-Commands ist registriert!');
-  } catch (error) {
-    console.error(error);
+    console.log('✅ Slash-Command erfolgreich registriert!');
+  } catch (err) {
+    console.error(err);
   }
 })();
 
