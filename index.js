@@ -1,8 +1,14 @@
 const { Client, GatewayIntentBits, SlashCommandBuilder, REST, Routes, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
 
-const TOKEN = 'DEIN_BOT_TOKEN';         // Ersetze hier mit deinem echten Bot Token
-const CLIENT_ID = 'DEINE_CLIENT_ID';    // Ersetze hier mit deiner Client ID
-const GUILD_ID = 'DEIN_SERVER_ID';      // Ersetze hier mit deiner Guild ID (Server ID)
+// Token, Client ID und Guild ID aus Umgebungsvariablen holen
+const TOKEN = process.env.BOT_TOKEN;
+const CLIENT_ID = process.env.CLIENT_ID;
+const GUILD_ID = process.env.GUILD_ID;
+
+if (!TOKEN || !CLIENT_ID || !GUILD_ID) {
+  console.error('Fehler: Bitte BOT_TOKEN, CLIENT_ID und GUILD_ID als Umgebungsvariablen setzen!');
+  process.exit(1);
+}
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds],
@@ -25,6 +31,7 @@ const commands = [
 ];
 
 const rest = new REST({ version: '10' }).setToken(TOKEN);
+
 (async () => {
   try {
     console.log('📨 Slash-Command wird registriert...');
