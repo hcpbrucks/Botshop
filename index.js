@@ -92,7 +92,7 @@ client.on('interactionCreate', async interaction => {
       .setTitle(titel)
       .setDescription(nachricht)
       .setColor(farbwert)
-      .setTimestamp();
+      
 
     await interaction.channel.send({ embeds: [embed] });
     await interaction.reply({ content: '✅ Embed gesendet.', ephemeral: true });
