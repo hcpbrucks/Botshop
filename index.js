@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, SlashCommandBuilder, REST, Routes, EmbedBuilder, PermissionFlagsBits } = require('index.js');
+const { Client, GatewayIntentBits, SlashCommandBuilder, REST, Routes, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
 
 const TOKEN = 'DEIN_BOT_TOKEN';         // Ersetze hier mit deinem echten Bot Token
 const CLIENT_ID = 'DEINE_CLIENT_ID';    // Ersetze hier mit deiner Client ID
