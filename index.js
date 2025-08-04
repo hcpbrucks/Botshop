@@ -1,16 +1,34 @@
 const express = require('express');
-const { Client, GatewayIntentBits, SlashCommandBuilder, REST, Routes, EmbedBuilder, PermissionFlagsBits, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { 
+  Client, 
+  GatewayIntentBits, 
+  SlashCommandBuilder, 
+  REST, 
+  Routes, 
+  EmbedBuilder, 
+  PermissionFlagsBits, 
+  ActionRowBuilder, 
+  StringSelectMenuBuilder, 
+  ButtonBuilder, 
+  ButtonStyle 
+} = require('discord.js');
 require('dotenv').config();
 
 const TOKEN = process.env.TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 const GUILD_ID = process.env.GUILD_ID;
 
-// IDs (bitte anpassen!)
-const ROLE_REQUIRED_ID = '1381291659492458549'; // Rolle für Berechtigung
+const ROLE_REQUIRED_ID = '1381291659492458549';
 const WELCOME_CHANNEL_ID = '1381278996645412984';
 const WELCOME_ROLES = ['1381290464916930691', '1381289341279670342'];
-const ADMIN_PANEL_CHANNEL_ID = '1381286179152068750'; // Channel für Adminpanel
+const ADMIN_PANEL_CHANNEL_ID = '1381286179152068750';
+
+const services = {
+  Netflix: { price: '10€', visible: true },
+  Spotify: { price: '8€', visible: true },
+  DisneyPlus: { price: '9€', visible: true },
+  GTA: { price: '15€', visible: true },
+};
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
@@ -19,7 +37,6 @@ const client = new Client({
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Mini-Webserver (damit Render & Co zufrieden sind)
 app.get('/', (req, res) => {
   res.send('Bot läuft!');
 });
@@ -27,16 +44,6 @@ app.listen(port, () => {
   console.log(`🌐 Webserver läuft auf Port ${port}`);
 });
 
-// Dienste mit Preis und Sichtbarkeit (Admin kann sichtbar/unsichtbar machen)
-const services = {
-  Netflix: { price: '5€', visible: true },
-  Spotify: { price: '3€', visible: true },
-  'Disney+': { price: '4€', visible: true },
-  GTA: { price: '7€', visible: true },
-  // Weitere Dienste hier hinzufügen
-};
-
-// Slash-Commands definieren
 const commands = [
   new SlashCommandBuilder()
     .setName('embed')
@@ -65,17 +72,19 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName('shop')
-    .setDescription('Zeigt den Shop an (Button und Auswahl)')
+    .setDescription('Zeigt den Shop an')
+    .setDefaultMemberPermissions(0)
     .toJSON(),
 
   new SlashCommandBuilder()
     .setName('adminpanel')
-    .setDescription('Öffnet das Admin-Panel zur Dienst-Verwaltung')
+    .setDescription('Admin-Panel für Dienste verwalten')
+    .setDefaultMemberPermissions(0)
     .toJSON(),
 ];
 
-// Slash-Commands registrieren
 const rest = new REST({ version: '10' }).setToken(TOKEN);
+
 (async () => {
   try {
     console.log('📨 Slash-Commands werden registriert...');
@@ -89,7 +98,16 @@ const rest = new REST({ version: '10' }).setToken(TOKEN);
   }
 })();
 
-// Willkommensnachricht mit Rollenvergabe
+function getVisibleServicesOptions() {
+  return Object.entries(services)
+    .filter(([_, data]) => data.visible)
+    .map(([name, data]) => ({
+      label: name,
+      description: `Preis: ${data.price}`,
+      value: name,
+    }));
+}
+
 client.on('guildMemberAdd', async member => {
   const channel = member.guild.channels.cache.get(WELCOME_CHANNEL_ID);
   if (!channel) return;
@@ -108,12 +126,18 @@ client.on('guildMemberAdd', async member => {
   }
 });
 
-// Interaction Handler (Commands, SelectMenus, Buttons)
+const userSelections = new Map();
+
+client.on('ready', () => {
+  console.log(`✅ Bot ist online als ${client.user.tag}`);
+});
+
 client.on('interactionCreate', async interaction => {
   if (interaction.isChatInputCommand()) {
-    // /embed Command (nur mit Rolle)
+    const member = interaction.member;
+
     if (interaction.commandName === 'embed') {
-      if (!interaction.member.roles.cache.has(ROLE_REQUIRED_ID)) {
+      if (!member.roles.cache.has(ROLE_REQUIRED_ID)) {
         return interaction.reply({ content: '❌ Du hast keine Berechtigung, diesen Befehl zu verwenden.', ephemeral: true });
       }
 
@@ -135,26 +159,16 @@ client.on('interactionCreate', async interaction => {
         .setColor(farbMap[farbe] || 0x00AEFF)
         .setFooter({ text: ' ' });
 
-      await interaction.reply({ embeds: [embed], ephemeral: false });
-    }
-
-    // /shop Command (nur mit Rolle ausführbar)
+      return interaction.reply({ embeds: [embed], ephemeral: false });
+    } 
     else if (interaction.commandName === 'shop') {
-      if (!interaction.member.roles.cache.has(ROLE_REQUIRED_ID)) {
+      if (!member.roles.cache.has(ROLE_REQUIRED_ID)) {
         return interaction.reply({ content: '❌ Du hast keine Berechtigung, diesen Befehl zu verwenden.', ephemeral: true });
       }
 
-      // Dropdown-Menü mit nur sichtbaren Diensten
-      const options = Object.entries(services)
-        .filter(([_, data]) => data.visible)
-        .map(([name, data]) => ({
-          label: name,
-          description: `Preis: ${data.price}`,
-          value: name,
-        }));
-
+      const options = getVisibleServicesOptions();
       if (options.length === 0) {
-        return interaction.reply({ content: 'Der Shop ist aktuell leer.', ephemeral: true });
+        return interaction.reply({ content: 'Der Shop ist momentan leer.', ephemeral: true });
       }
 
       const selectMenu = new StringSelectMenuBuilder()
@@ -165,30 +179,22 @@ client.on('interactionCreate', async interaction => {
       const buyButton = new ButtonBuilder()
         .setCustomId('buy_button')
         .setLabel('Kaufen')
-        .setStyle(ButtonStyle.Success);
+        .setStyle(ButtonStyle.Primary);
 
-      const rowSelect = new ActionRowBuilder().addComponents(selectMenu);
-      const rowButton = new ActionRowBuilder().addComponents(buyButton);
+      const row1 = new ActionRowBuilder().addComponents(selectMenu);
+      const row2 = new ActionRowBuilder().addComponents(buyButton);
 
       await interaction.reply({
-        content: 'Willkommen im Shop! Wähle einen Dienst aus und klicke auf "Kaufen".',
-        components: [rowSelect, rowButton],
+        content: 'Wähle im Dropdown einen Dienst aus und drücke auf Kaufen.',
+        components: [row1, row2],
         ephemeral: false
       });
-    }
-
-    // /adminpanel Command (nur mit Rolle)
+    } 
     else if (interaction.commandName === 'adminpanel') {
-      if (!interaction.member.roles.cache.has(ROLE_REQUIRED_ID)) {
+      if (!member.roles.cache.has(ROLE_REQUIRED_ID)) {
         return interaction.reply({ content: '❌ Du hast keine Berechtigung, diesen Befehl zu verwenden.', ephemeral: true });
       }
 
-      const adminChannel = client.channels.cache.get(ADMIN_PANEL_CHANNEL_ID);
-      if (!adminChannel) {
-        return interaction.reply({ content: '❌ Admin-Channel nicht gefunden.', ephemeral: true });
-      }
-
-      // Erstelle Embed mit Dienststatus
       let description = '';
       for (const [name, data] of Object.entries(services)) {
         description += `${data.visible ? '✅' : '❌'} **${name}** — Preis: ${data.price}\n`;
@@ -210,30 +216,84 @@ client.on('interactionCreate', async interaction => {
         );
       }
 
-      // Suche Nachricht im Admin Channel, sonst sende neue
-      const fetchedMessages = await adminChannel.messages.fetch({ limit: 10 });
-      const adminMessage = fetchedMessages.find(msg => msg.author.id === client.user.id && msg.embeds.length > 0 && msg.embeds[0].title === 'Admin Panel: Dienste Verwaltung');
-
-      if (adminMessage) {
-        await adminMessage.edit({ embeds: [embed], components: [buttonsRow] });
-        await interaction.reply({ content: '✅ Admin-Panel wurde aktualisiert.', ephemeral: true });
-      } else {
-        await adminChannel.send({ embeds: [embed], components: [buttonsRow] });
-        await interaction.reply({ content: '✅ Admin-Panel wurde erstellt.', ephemeral: true });
-      }
+      await interaction.reply({ embeds: [embed], components: [buttonsRow], ephemeral: true });
     }
-  }
-
-  // SelectMenu Interaktion im Shop
+  } 
   else if (interaction.isStringSelectMenu()) {
     if (interaction.customId === 'shop_select') {
       const selected = interaction.values[0];
+      userSelections.set(interaction.user.id, selected);
       await interaction.reply({ content: `Du hast den Dienst **${selected}** ausgewählt. Drücke nun "Kaufen".`, ephemeral: true });
     }
-  }
-
-  // Button Interaktionen (Shop Kaufen & Admin Toggle)
+  } 
   else if (interaction.isButton()) {
-    // Kauf-Button (jeder darf klicken)
     if (interaction.customId === 'buy_button') {
-      await interaction.reply({ content:
+      const selectedService = userSelections.get(interaction.user.id);
+      if (!selectedService) {
+        return interaction.reply({ content: '❌ Du hast keinen Dienst ausgewählt. Bitte wähle zuerst einen Dienst im Dropdown aus.', ephemeral: true });
+      }
+
+      const service = services[selectedService];
+      if (!service || !service.visible) {
+        return interaction.reply({ content: '❌ Dieser Dienst ist aktuell nicht verfügbar.', ephemeral: true });
+      }
+
+      await interaction.reply({ content: `✅ Du hast den Dienst **${selectedService}** für **${service.price}** gekauft! (Simulierte Zahlung)`, ephemeral: true });
+
+            // Hier kannst du deine Logik für den Kauf, Rollenvergabe etc. einbauen.
+      // Beispiel: Nachricht im Admin-Channel mit Bestellübersicht senden
+      const adminChannel = client.channels.cache.get(ADMIN_PANEL_CHANNEL_ID);
+      if (adminChannel) {
+        const embed = new EmbedBuilder()
+          .setTitle('Neuer Kauf')
+          .setColor(0x00AEFF)
+          .setDescription(`**User:** ${interaction.user.tag}\n**Dienst:** ${selectedService}\n**Preis:** ${service.price}\n**Datum:** <t:${Math.floor(Date.now() / 1000)}:F>`);
+        adminChannel.send({ embeds: [embed] });
+      }
+
+      // Optional: Rolle vergeben, wenn gewünscht
+      // const role = interaction.guild.roles.cache.get('ROLE_ID_HIER');
+      // if(role) {
+      //   interaction.member.roles.add(role).catch(console.error);
+      // }
+
+      // Auswahl zurücksetzen, damit man nochmal neu auswählen kann
+      userSelections.delete(interaction.user.id);
+    } 
+    else if (interaction.customId.startsWith('toggle_')) {
+      // Admin-Panel: Dienste Ein-/Ausblenden
+      const dienstName = interaction.customId.replace('toggle_', '');
+      if (!(dienstName in services)) {
+        return interaction.reply({ content: 'Unbekannter Dienst.', ephemeral: true });
+      }
+
+      services[dienstName].visible = !services[dienstName].visible;
+
+      // Embed aktualisieren
+      let description = '';
+      for (const [name, data] of Object.entries(services)) {
+        description += `${data.visible ? '✅' : '❌'} **${name}** — Preis: ${data.price}\n`;
+      }
+
+      const embed = new EmbedBuilder()
+        .setTitle('Admin Panel: Dienste Verwaltung')
+        .setDescription(description)
+        .setColor('Blue')
+        .setFooter({ text: 'Klicke auf die Buttons, um Dienste ein-/auszuschalten.' });
+
+      const buttonsRow = new ActionRowBuilder();
+      for (const [name, data] of Object.entries(services)) {
+        buttonsRow.addComponents(
+          new ButtonBuilder()
+            .setCustomId(`toggle_${name}`)
+            .setLabel(data.visible ? `Ausblenden: ${name}` : `Einblenden: ${name}`)
+            .setStyle(data.visible ? ButtonStyle.Danger : ButtonStyle.Success)
+        );
+      }
+
+      await interaction.update({ embeds: [embed], components: [buttonsRow] });
+    }
+  }
+});
+
+client.login(TOKEN);
